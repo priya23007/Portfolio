@@ -1,12 +1,12 @@
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.database import connect_to_mongo, close_mongo_connection, db_instance
+from app.database import ensure_connected, close_mongo_connection, db_instance
 from app.services.storage import seed_initial_database
 from app.services.cloudinary_svc import is_cloudinary_configured, LOCAL_UPLOAD_DIR
 from app.services.email_service import is_smtp_configured
@@ -21,12 +21,18 @@ from app.routes.admin_upload import router as admin_upload_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("portfolio.api")
 
+async def ensure_ready():
+    """Connect to MongoDB (and seed it once) if this instance isn't ready yet."""
+    connected = await ensure_connected()
+    if connected and not db_instance.seeded:
+        await seed_initial_database()
+        db_instance.seeded = True
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup sequence
+    # Startup sequence (runs locally; on Vercel the middleware below covers it)
     logger.info("Initializing Portfolio Backend Service...")
-    await connect_to_mongo()
-    await seed_initial_database()
+    await ensure_ready()
     logger.info("Portfolio Backend Service initialized.")
     yield
     # Shutdown sequence
@@ -49,6 +55,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def ensure_database(request: Request, call_next):
+    if request.url.path.startswith("/api"):
+        await ensure_ready()
+    return await call_next(request)
 
 # Mount local uploads directory for fallback preview
 os.makedirs(LOCAL_UPLOAD_DIR, exist_ok=True)

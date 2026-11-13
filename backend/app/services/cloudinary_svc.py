@@ -12,7 +12,12 @@ from app.config import settings
 
 logger = logging.getLogger("uvicorn.error")
 
-LOCAL_UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+# Fallback storage when Cloudinary is not configured. On Vercel only /tmp is writable
+# (and it is wiped between invocations), so configure Cloudinary in production.
+if os.environ.get("VERCEL"):
+    LOCAL_UPLOAD_DIR = "/tmp/uploads"
+else:
+    LOCAL_UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
 os.makedirs(LOCAL_UPLOAD_DIR, exist_ok=True)
 
 def is_cloudinary_configured() -> bool:

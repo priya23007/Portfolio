@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     class Config:
-        env_file = ".env"
+        # backend/.env locally; on Vercel the values come from Project → Settings → Environment Variables
+        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
         extra = "ignore"
 
 settings = Settings()

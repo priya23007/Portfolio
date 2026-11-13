@@ -1,0 +1,17 @@
+# secrets
+.env
+**/.env
+!**/.env.example
+
+# dependencies & builds (Vercel installs and builds these itself)
+node_modules/
+frontend/dist/
+backend/venv/
+__pycache__/
+*.pyc
+
+# local-only
+.vercel/
+.DS_Store
+backend/app/uploads/
+resume-drafts/

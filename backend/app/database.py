@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -9,6 +10,8 @@ class Database:
     client: Optional[AsyncIOMotorClient] = None
     db: Optional[AsyncIOMotorDatabase] = None
     is_connected: bool = False
+    loop: Optional[asyncio.AbstractEventLoop] = None
+    seeded: bool = False
 
 db_instance = Database()
 
@@ -32,6 +35,28 @@ async def connect_to_mongo():
         db_instance.is_connected = False
         logger.warning(f"Could not connect to MongoDB cluster: {e}")
         logger.warning("Backend will run with local fallback storage until MongoDB cluster is connected.")
+
+async def ensure_connected() -> bool:
+    """Connect on first use, and reconnect if the event loop changed.
+
+    Serverless platforms (Vercel) may not run FastAPI's startup hook and can serve
+    later requests on a new event loop; a Motor client is bound to the loop it was
+    created on, so it is recreated when that happens.
+    """
+    loop = asyncio.get_running_loop()
+    if db_instance.is_connected and db_instance.loop is loop:
+        return True
+    if db_instance.client is not None:
+        try:
+            db_instance.client.close()
+        except Exception:
+            pass
+        db_instance.client = None
+        db_instance.db = None
+        db_instance.is_connected = False
+    await connect_to_mongo()
+    db_instance.loop = loop
+    return db_instance.is_connected
 
 async def close_mongo_connection():
     if db_instance.client:

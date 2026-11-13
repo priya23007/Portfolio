@@ -21,7 +21,7 @@ The system is bifurcated into two operational phases:
 - **Engineering Footer**: Navigation shortcuts, social media links, and live service health indicators.
 
 ### Phase 2: Admin Control Center (Private CMS)
-- **JWT Authentication**: Secure login at `admin@portfolio.com` (default initial password: `Admin@123456`).
+- **JWT Authentication**: Secure admin login (credentials seeded from `ADMIN_EMAIL` / `ADMIN_INITIAL_PASSWORD`; change the password after first login).
 - **Real-Time Integration Health**: Live monitoring of MongoDB connection, Cloudinary CDN status, and Google SMTP authentication.
 - **Portfolio Content Manager**: Direct editing of all portfolio copy, bio paragraphs, numerical statistics, skills matrix, career milestones, and social profile links with MongoDB persistence.
 - **Projects Manager**: Create, edit, delete, and reorder projects, with integrated **Cloudinary Image Upload**.
@@ -123,8 +123,8 @@ NOTIFICATION_RECEIVER_EMAIL=your_email@gmail.com
 ### 4. Admin Credentials & JWT
 ```env
 JWT_SECRET=super_secure_random_key_for_jwt
-ADMIN_EMAIL=admin@portfolio.com
-ADMIN_INITIAL_PASSWORD=Admin@123456
+ADMIN_EMAIL=you@example.com
+ADMIN_INITIAL_PASSWORD=choose_a_strong_password
 ```
 
 ---
@@ -138,9 +138,42 @@ The admin panel is **not linked anywhere on the public site**. Open it directly:
 
 Sign in with `ADMIN_EMAIL` / `ADMIN_INITIAL_PASSWORD` from `backend/.env`, then change the password under **Security & Config**.
 
-### Deploying so `/admin` works
+## Deploying on Vercel (frontend + backend in one project)
 
-`/admin` is a client-side route, so the server must return `index.html` for unknown paths:
+Everything deploys as **one Vercel project on one domain**:
 
-- **FastAPI only:** run `npm run build` in `frontend/`; the backend automatically serves `frontend/dist` with SPA fallback, so `http://<ip>:8000/admin` works.
-- **Nginx:** use `try_files $uri /index.html;` in the `location /` block and proxy `/api` to the backend.
+| Path | Served by |
+|---|---|
+| `/`, `/admin`, any page | React build (`frontend/dist`), static |
+| `/api/*` | FastAPI, as one Python serverless function (`api/index.py`) |
+
+`vercel.json` builds the frontend, routes `/api/*` to FastAPI and every other path to `index.html` (so `/admin` works).
+Locally nothing changes: keep using the two commands from **Quick Start**.
+
+### 1. Push to GitHub
+`.gitignore` keeps `.env`, `venv`, `node_modules` and `dist` out of the repo.
+
+### 2. Import the repo in Vercel
+[vercel.com/new](https://vercel.com/new) → import `Portfolio` → leave **Root Directory** as the repo root, Framework **Other**.
+Build settings come from `vercel.json`; don't override them.
+
+### 3. Add Environment Variables (Project → Settings → Environment Variables)
+Add the same keys as `backend/.env`:
+
+`MONGODB_URI`, `MONGODB_DB_NAME`, `JWT_SECRET`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD`,
+`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_NAME`, `NOTIFICATION_RECEIVER_EMAIL`,
+`CORS_ORIGINS` (set to your Vercel URL, e.g. `https://your-project.vercel.app`).
+
+### 4. Allow Vercel to reach MongoDB Atlas
+Atlas → **Network Access** → add `0.0.0.0/0` (Vercel functions have no fixed IP). Keep a strong database password.
+
+### 5. Deploy
+Click **Deploy**. Then check `https://<your-domain>/api/health` (should show `"connected": true`) and open `/admin`.
+
+### Notes
+- **Uploads must use Cloudinary** in production: Vercel's disk is temporary, so local-disk fallback files disappear.
+- Vercel limits request bodies to **4.5 MB**; keep uploaded images/PDFs under that.
+- The first request after idle time is slower (cold start + MongoDB connect).
+- Custom domain: Project → Settings → Domains.
+- **Without Vercel** (one server by IP): `cd frontend && npm run build`, then `cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000`. FastAPI serves `frontend/dist` with SPA fallback, so `http://<ip>:8000/admin` works.
