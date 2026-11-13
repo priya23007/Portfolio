@@ -80,6 +80,10 @@ async def health_check():
         "status": "healthy",
         "database": {
             "connected": db_instance.is_connected,
+            # Diagnostics without secrets: why the connection failed, and whether
+            # MONGODB_URI was provided at all (the default points at localhost).
+            "error": db_instance.last_error,
+            "uriConfigured": not settings.MONGODB_URI.startswith("mongodb://localhost"),
             "type": "MongoDB Atlas / NoSQL",
             "name": settings.MONGODB_DB_NAME
         },

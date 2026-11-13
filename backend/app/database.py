@@ -12,6 +12,7 @@ class Database:
     is_connected: bool = False
     loop: Optional[asyncio.AbstractEventLoop] = None
     seeded: bool = False
+    last_error: Optional[str] = None
 
 db_instance = Database()
 
@@ -27,12 +28,14 @@ async def connect_to_mongo():
         await db_instance.client.admin.command('ping')
         db_instance.db = db_instance.client[settings.MONGODB_DB_NAME]
         db_instance.is_connected = True
+        db_instance.last_error = None
         logger.info(f"Connected to MongoDB database: {settings.MONGODB_DB_NAME}")
         
         # Create indexes
         await init_db_indexes()
     except Exception as e:
         db_instance.is_connected = False
+        db_instance.last_error = type(e).__name__
         logger.warning(f"Could not connect to MongoDB cluster: {e}")
         logger.warning("Backend will run with local fallback storage until MongoDB cluster is connected.")
 
