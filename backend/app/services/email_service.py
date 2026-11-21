@@ -4,17 +4,21 @@ import asyncio
 import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from app.config import settings
 
 logger = logging.getLogger("uvicorn.error")
 
+# India Standard Time (UTC+5:30, no daylight saving). A fixed offset avoids
+# depending on a timezone database, which serverless hosts may not ship.
+IST = timezone(timedelta(hours=5, minutes=30), "IST")
+
 def is_smtp_configured() -> bool:
     return bool(settings.SMTP_USER and settings.SMTP_PASSWORD)
 
 def generate_enquiry_email_html(enquiry_data: Dict[str, Any], enquiry_id: str) -> str:
-    timestamp_str = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
+    timestamp_str = datetime.now(IST).strftime("%B %d, %Y at %I:%M %p IST")
     
     # Generate rows for each field dynamically
     rows_html = ""
@@ -87,7 +91,7 @@ def generate_enquiry_email_html(enquiry_data: Dict[str, Any], enquiry_id: str) -
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                         <tr>
                             <td align="left">
-                                <a href="mailto:{client_email}?subject=Re:%20Portfolio%20Inquiry%20-%20Priya%20Sharma" style="display: inline-block; background-color: #0284c7; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 6px; border: 1px solid #0284c7;">
+                                <a href="mailto:{client_email}?subject=Re:%20Portfolio%20Inquiry%20-%20Priya" style="display: inline-block; background-color: #0284c7; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 6px; border: 1px solid #0284c7;">
                                     Reply to Client directly
                                 </a>
                             </td>
